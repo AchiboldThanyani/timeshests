@@ -3,18 +3,22 @@ using timesheets.Infrastructure.Data;
 using timesheets.Infrastructure.Repositories;
 using timesheets.Domain.Interfaces;
 using timesheets.Application.Services;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
 
+// Add MediatR
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { 
-        Title = "Timesheets API", 
+    c.SwaggerDoc("v1", new() {
+        Title = "Timesheets API",
         Version = "v1",
         Description = "A simple timesheet management API"
     });
@@ -28,7 +32,7 @@ builder.Services.AddDbContext<TimesheetDbContext>(options =>
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ITimesheetRepository, TimesheetRepository>();
 
-// Register services
+// Register services (keeping them for backward compatibility if needed)
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 

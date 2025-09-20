@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using MediatR;
 using timesheets.Application.DTOs;
-using timesheets.Application.Services;
+using timesheets.Application.DTOs.Requests;
+using timesheets.Application.DTOs.Responses;
+using timesheets.Application.Commands.Timesheets;
+using timesheets.Application.Queries.Timesheets;
+using timesheets.Application.Mappers;
 
 namespace timesheets.Presentation.Controllers;
 
@@ -8,13 +13,11 @@ namespace timesheets.Presentation.Controllers;
 [Route("api/[controller]")]
 public class TimesheetsController : ControllerBase
 {
-    private readonly ITimesheetService _timesheetService;
-    private readonly IProjectService _projectService;
+    private readonly IMediator _mediator;
 
-    public TimesheetsController(ITimesheetService timesheetService, IProjectService projectService)
+    public TimesheetsController(IMediator mediator)
     {
-        _timesheetService = timesheetService;
-        _projectService = projectService;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -23,7 +26,7 @@ public class TimesheetsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TimesheetDto>>> GetTimesheets()
     {
-        var timesheets = await _timesheetService.GetAllTimesheetsAsync();
+        var timesheets = await _mediator.Send(new GetAllTimesheetsQuery());
         return Ok(timesheets);
     }
 
@@ -33,7 +36,7 @@ public class TimesheetsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<TimesheetDto>> GetTimesheet(int id)
     {
-        var timesheet = await _timesheetService.GetTimesheetByIdAsync(id);
+        var timesheet = await _mediator.Send(new GetTimesheetByIdQuery(id));
         if (timesheet == null)
         {
             return NotFound();
@@ -42,68 +45,49 @@ public class TimesheetsController : ControllerBase
     }
 
     /// <summary>
-    /// Get timesheets by project ID
-    /// </summary>
-    [HttpGet("project/{projectId}")]
-    public async Task<ActionResult<IEnumerable<TimesheetDto>>> GetTimesheetsByProject(int projectId)
-    {
-        var timesheets = await _timesheetService.GetTimesheetsByProjectAsync(projectId);
-        return Ok(timesheets);
-    }
-
-    /// <summary>
-    /// Get timesheets by employee name
-    /// </summary>
-    [HttpGet("employee/{employeeName}")]
-    public async Task<ActionResult<IEnumerable<TimesheetDto>>> GetTimesheetsByEmployee(string employeeName)
-    {
-        var timesheets = await _timesheetService.GetTimesheetsByEmployeeAsync(employeeName);
-        return Ok(timesheets);
-    }
-
-    /// <summary>
-    /// Get timesheets by date range
-    /// </summary>
-    [HttpGet("daterange")]
-    public async Task<ActionResult<IEnumerable<TimesheetDto>>> GetTimesheetsByDateRange(
-        [FromQuery] DateTime startDate, 
-        [FromQuery] DateTime endDate)
-    {
-        var timesheets = await _timesheetService.GetTimesheetsByDateRangeAsync(startDate, endDate);
-        return Ok(timesheets);
-    }
-
-    /// <summary>
     /// Create a new timesheet
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<TimesheetDto>> CreateTimesheet(TimesheetDto timesheetDto)
+    public async Task<ActionResult<TimesheetDto>> CreateTimesheet(CreateTimesheetRequest request)
     {
-        var createdTimesheet = await _timesheetService.CreateTimesheetAsync(timesheetDto);
-        return CreatedAtAction(nameof(GetTimesheet), new { id = createdTimesheet.Id }, createdTimesheet);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var command = TimesheetMapper.ToCommand(request);
+            var createdTimesheet = await _mediator.Send(command);
+            return CreatedAtAction(nameof(GetTimesheet), new { id = createdTimesheet.Id }, createdTimesheet);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     /// <summary>
     /// Update an existing timesheet
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateTimesheet(int id, TimesheetDto timesheetDto)
+    public async Task<IActionResult> UpdateTimesheet(int id, UpdateTimesheetRequest request)
     {
-        if (id != timesheetDto.Id)
+        if (!ModelState.IsValid)
         {
-            return BadRequest();
+            return BadRequest(ModelState);
         }
 
         try
         {
-            await _timesheetService.UpdateTimesheetAsync(timesheetDto);
+            var command = TimesheetMapper.ToCommand(id, request);
+            await _mediator.Send(command);
+            return NoContent();
         }
-        catch
+        catch (ArgumentException ex)
         {
-            return NotFound();
+            return NotFound(ex.Message);
         }
-
-        return NoContent();
     }
 
     /// <summary>
@@ -112,11 +96,8 @@ public class TimesheetsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteTimesheet(int id)
     {
-        try
-        {
-            await _timesheetService.DeleteTimesheetAsync(id);
-        }
-        catch
+        var result = await _mediator.Send(new DeleteTimesheetCommand(id));
+        if (!result)
         {
             return NotFound();
         }

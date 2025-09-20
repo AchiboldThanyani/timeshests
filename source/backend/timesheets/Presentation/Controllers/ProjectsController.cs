@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using MediatR;
 using timesheets.Application.DTOs;
-using timesheets.Application.Services;
+using timesheets.Application.DTOs.Requests;
+using timesheets.Application.DTOs.Responses;
+using timesheets.Application.Commands.Projects;
+using timesheets.Application.Queries.Projects;
+using timesheets.Application.Mappers;
 
 namespace timesheets.Presentation.Controllers;
 
@@ -8,11 +13,11 @@ namespace timesheets.Presentation.Controllers;
 [Route("api/[controller]")]
 public class ProjectsController : ControllerBase
 {
-    private readonly IProjectService _projectService;
+    private readonly IMediator _mediator;
 
-    public ProjectsController(IProjectService projectService)
+    public ProjectsController(IMediator mediator)
     {
-        _projectService = projectService;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -21,7 +26,7 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProjectDto>>> GetProjects()
     {
-        var projects = await _projectService.GetAllProjectsAsync();
+        var projects = await _mediator.Send(new GetAllProjectsQuery());
         return Ok(projects);
     }
 
@@ -31,7 +36,7 @@ public class ProjectsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ProjectDto>> GetProject(int id)
     {
-        var project = await _projectService.GetProjectByIdAsync(id);
+        var project = await _mediator.Send(new GetProjectByIdQuery(id));
         if (project == null)
         {
             return NotFound();
@@ -43,33 +48,56 @@ public class ProjectsController : ControllerBase
     /// Create a new project
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<ProjectDto>> CreateProject(ProjectDto projectDto)
+    public async Task<ActionResult<ProjectDto>> CreateProject(CreateProjectRequest request)
     {
-        var createdProject = await _projectService.CreateProjectAsync(projectDto);
-        return CreatedAtAction(nameof(GetProject), new { id = createdProject.Id }, createdProject);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        if (!request.ValidateDateRange())
+        {
+            return BadRequest("End date must be after start date");
+        }
+
+        try
+        {
+            var command = ProjectMapper.ToCommand(request);
+            var createdProject = await _mediator.Send(command);
+            return CreatedAtAction(nameof(GetProject), new { id = createdProject.Id }, createdProject);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     /// <summary>
     /// Update an existing project
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProject(int id, ProjectDto projectDto)
+    public async Task<IActionResult> UpdateProject(int id, UpdateProjectRequest request)
     {
-        if (id != projectDto.Id)
+        if (!ModelState.IsValid)
         {
-            return BadRequest();
+            return BadRequest(ModelState);
+        }
+
+        if (!request.ValidateDateRange())
+        {
+            return BadRequest("End date must be after start date");
         }
 
         try
         {
-            await _projectService.UpdateProjectAsync(projectDto);
+            var command = ProjectMapper.ToCommand(id, request);
+            await _mediator.Send(command);
+            return NoContent();
         }
-        catch
+        catch (ArgumentException ex)
         {
-            return NotFound();
+            return NotFound(ex.Message);
         }
-
-        return NoContent();
     }
 
     /// <summary>
@@ -78,11 +106,8 @@ public class ProjectsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProject(int id)
     {
-        try
-        {
-            await _projectService.DeleteProjectAsync(id);
-        }
-        catch
+        var result = await _mediator.Send(new DeleteProjectCommand(id));
+        if (!result)
         {
             return NotFound();
         }
