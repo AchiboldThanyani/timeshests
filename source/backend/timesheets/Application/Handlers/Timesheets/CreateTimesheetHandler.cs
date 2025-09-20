@@ -1,35 +1,37 @@
+using AutoMapper;
 using MediatR;
 using timesheets.Application.Commands.Timesheets;
 using timesheets.Application.DTOs;
-using timesheets.Application.Mappers;
 using timesheets.Domain.Interfaces;
+using timesheets.Domain.Entities;
+using timesheets.Domain.Shared;
 
 namespace timesheets.Application.Handlers.Timesheets;
 
-public class CreateTimesheetHandler : IRequestHandler<CreateTimesheetCommand, TimesheetDto>
+public class CreateTimesheetHandler : IRequestHandler<CreateTimesheetCommand, Result<TimesheetDto>>
 {
     private readonly ITimesheetRepository _timesheetRepository;
+    private readonly IMapper _mapper;
 
-    public CreateTimesheetHandler(ITimesheetRepository timesheetRepository)
+    public CreateTimesheetHandler(ITimesheetRepository timesheetRepository, IMapper mapper)
     {
         _timesheetRepository = timesheetRepository;
+        _mapper = mapper;
     }
 
-    public async Task<TimesheetDto> Handle(CreateTimesheetCommand request, CancellationToken cancellationToken)
+    public async Task<Result<TimesheetDto>> Handle(CreateTimesheetCommand request, CancellationToken cancellationToken)
     {
-        var timesheet = TimesheetMapper.ToEntity(request);
-        var createdTimesheet = await _timesheetRepository.AddAsync(timesheet);
+        var timesheetResult = Timesheet.Create(
+            request.EmployeeName,
+            request.ProjectId,
+            request.Date,
+            request.HoursWorked,
+            request.Description);
 
-        return new TimesheetDto
-        {
-            Id = createdTimesheet.Id,
-            EmployeeName = createdTimesheet.EmployeeName,
-            ProjectId = createdTimesheet.ProjectId,
-            Description = createdTimesheet.Description,
-            Date = createdTimesheet.Date,
-            HoursWorked = createdTimesheet.HoursWorked,
-            CreatedDate = createdTimesheet.CreatedDate,
-            UpdatedDate = createdTimesheet.UpdatedDate
-        };
+        if (timesheetResult.IsFailure)
+            return Result.Failure<TimesheetDto>(timesheetResult.Error!);
+
+        var createdTimesheet = await _timesheetRepository.AddAsync(timesheetResult.Value);
+        return _mapper.Map<TimesheetDto>(createdTimesheet);
     }
 }

@@ -13,6 +13,9 @@ builder.Services.AddControllers();
 // Add MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
 
+// Add AutoMapper
+builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
+
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -31,6 +34,10 @@ builder.Services.AddDbContext<TimesheetDbContext>(options =>
 // Register repositories
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ITimesheetRepository, TimesheetRepository>();
+
+// Register mappers
+builder.Services.AddScoped<timesheets.Application.Mappers.TimesheetMapper>();
+builder.Services.AddScoped<timesheets.Application.Mappers.ProjectMapper>();
 
 // Register services (keeping them for backward compatibility if needed)
 builder.Services.AddScoped<IProjectService, ProjectService>();

@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using timesheets.Application.DTOs;
@@ -5,7 +6,7 @@ using timesheets.Application.DTOs.Requests;
 using timesheets.Application.DTOs.Responses;
 using timesheets.Application.Commands.Timesheets;
 using timesheets.Application.Queries.Timesheets;
-using timesheets.Application.Mappers;
+using timesheets.Domain.Shared;
 
 namespace timesheets.Presentation.Controllers;
 
@@ -14,10 +15,12 @@ namespace timesheets.Presentation.Controllers;
 public class TimesheetsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IMapper _mapper;
 
-    public TimesheetsController(IMediator mediator)
+    public TimesheetsController(IMediator mediator, IMapper mapper)
     {
         _mediator = mediator;
+        _mapper = mapper;
     }
 
     /// <summary>
@@ -55,16 +58,15 @@ public class TimesheetsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        try
+        var command = _mapper.Map<CreateTimesheetCommand>(request);
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            var command = TimesheetMapper.ToCommand(request);
-            var createdTimesheet = await _mediator.Send(command);
-            return CreatedAtAction(nameof(GetTimesheet), new { id = createdTimesheet.Id }, createdTimesheet);
+            return BadRequest(result.Error.Message);
         }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+
+        return CreatedAtAction(nameof(GetTimesheet), new { id = result.Value.Id }, result.Value);
     }
 
     /// <summary>
@@ -78,16 +80,18 @@ public class TimesheetsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        try
+        var command = _mapper.Map<UpdateTimesheetCommand>(request);
+        command = command with { Id = id };
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            var command = TimesheetMapper.ToCommand(id, request);
-            await _mediator.Send(command);
-            return NoContent();
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(result.Error.Message)
+                : BadRequest(result.Error.Message);
         }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+
+        return NoContent();
     }
 
     /// <summary>
@@ -97,9 +101,12 @@ public class TimesheetsController : ControllerBase
     public async Task<IActionResult> DeleteTimesheet(int id)
     {
         var result = await _mediator.Send(new DeleteTimesheetCommand(id));
-        if (!result)
+
+        if (result.IsFailure)
         {
-            return NotFound();
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(result.Error.Message)
+                : BadRequest(result.Error.Message);
         }
 
         return NoContent();

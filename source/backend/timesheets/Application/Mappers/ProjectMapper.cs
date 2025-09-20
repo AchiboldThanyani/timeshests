@@ -1,3 +1,4 @@
+using AutoMapper;
 using timesheets.Application.Commands.Projects;
 using timesheets.Application.DTOs.Requests;
 using timesheets.Application.DTOs.Responses;
@@ -5,59 +6,38 @@ using timesheets.Domain.Entities;
 
 namespace timesheets.Application.Mappers;
 
-public static class ProjectMapper
+public class ProjectMapper
 {
-    public static CreateProjectCommand ToCommand(CreateProjectRequest request)
+    private readonly IMapper _mapper;
+
+    public ProjectMapper(IMapper mapper)
     {
-        return new CreateProjectCommand(
-            request.Name,
-            request.Description,
-            request.Client,
-            request.StartDate,
-            request.EndDate
-        );
+        _mapper = mapper;
     }
 
-    public static UpdateProjectCommand ToCommand(int id, UpdateProjectRequest request)
+    public CreateProjectCommand ToCommand(CreateProjectRequest request)
     {
-        return new UpdateProjectCommand(
-            id,
-            request.Name,
-            request.Description,
-            request.Client,
-            request.StartDate,
-            request.EndDate
-        );
+        return _mapper.Map<CreateProjectCommand>(request);
     }
 
-    public static Project ToEntity(CreateProjectCommand command)
+    public UpdateProjectCommand ToCommand(int id, UpdateProjectRequest request)
     {
-        return new Project(
-            command.Name,
-            command.Description,
-            command.StartDate,
-            command.EndDate,
-            command.Client
-        );
+        var command = _mapper.Map<UpdateProjectCommand>(request);
+        return command with { Id = id };
     }
 
-    public static ProjectResponse ToResponse(Project project)
+    public Project ToEntity(CreateProjectCommand command)
     {
-        return new ProjectResponse
-        {
-            Id = project.Id,
-            Name = project.Name,
-            Description = project.Description,
-            Client = project.Client,
-            StartDate = project.StartDate,
-            EndDate = project.EndDate,
-            CreatedDate = project.CreatedDate,
-            UpdatedDate = project.UpdatedDate
-        };
+        return _mapper.Map<Project>(command);
     }
 
-    public static IEnumerable<ProjectResponse> ToResponse(IEnumerable<Project> projects)
+    public ProjectResponse ToResponse(Project project)
     {
-        return projects.Select(ToResponse);
+        return _mapper.Map<ProjectResponse>(project);
+    }
+
+    public IEnumerable<ProjectResponse> ToResponse(IEnumerable<Project> projects)
+    {
+        return _mapper.Map<IEnumerable<ProjectResponse>>(projects);
     }
 }

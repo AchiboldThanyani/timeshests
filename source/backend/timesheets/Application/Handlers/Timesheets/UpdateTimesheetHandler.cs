@@ -2,10 +2,12 @@ using MediatR;
 using timesheets.Application.Commands.Timesheets;
 using timesheets.Application.DTOs;
 using timesheets.Domain.Interfaces;
+using timesheets.Domain.Shared;
+using timesheets.Domain.Errors;
 
 namespace timesheets.Application.Handlers.Timesheets;
 
-public class UpdateTimesheetHandler : IRequestHandler<UpdateTimesheetCommand, TimesheetDto>
+public class UpdateTimesheetHandler : IRequestHandler<UpdateTimesheetCommand, Result<TimesheetDto>>
 {
     private readonly ITimesheetRepository _timesheetRepository;
 
@@ -14,19 +16,22 @@ public class UpdateTimesheetHandler : IRequestHandler<UpdateTimesheetCommand, Ti
         _timesheetRepository = timesheetRepository;
     }
 
-    public async Task<TimesheetDto> Handle(UpdateTimesheetCommand request, CancellationToken cancellationToken)
+    public async Task<Result<TimesheetDto>> Handle(UpdateTimesheetCommand request, CancellationToken cancellationToken)
     {
         var existingTimesheet = await _timesheetRepository.GetByIdAsync(request.Id);
         if (existingTimesheet == null)
-            throw new ArgumentException($"Timesheet with ID {request.Id} not found.");
+            return Result.Failure<TimesheetDto>(TimesheetError.NotFound);
 
-        existingTimesheet.UpdateTimeEntry(
+        var updateResult = existingTimesheet.UpdateTimeEntry(
             request.EmployeeName,
             request.ProjectId,
             request.Date,
             request.HoursWorked,
             request.Description
         );
+
+        if (updateResult.IsFailure)
+            return Result.Failure<TimesheetDto>(updateResult.Error!);
 
         var updatedTimesheet = await _timesheetRepository.UpdateAsync(existingTimesheet);
 

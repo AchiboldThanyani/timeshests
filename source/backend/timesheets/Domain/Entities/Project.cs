@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using timesheets.Domain.Errors;
+using timesheets.Domain.Shared;
 
 namespace timesheets.Domain.Entities;
 
@@ -21,6 +23,15 @@ public class Project
         EndDate = endDate;
         CreatedDate = DateTime.UtcNow;
         IsActive = true;
+    }
+
+    public static Result<Project> Create(string name, string? description, DateTime? startDate = null, DateTime? endDate = null, string? client = null)
+    {
+        var validationResult = ValidateProjectData(name, description, startDate, endDate, client);
+        if (validationResult.IsFailure)
+            return Result.Failure<Project>(validationResult.Error!);
+
+        return new Project(name, description, startDate, endDate, client);
     }
 
     public int Id { get; set; }
@@ -49,13 +60,11 @@ public class Project
     public virtual ICollection<Timesheet> Timesheets { get; set; } = new List<Timesheet>();
 
     // Rich domain methods
-    public void UpdateDetails(string name, string? description, DateTime? startDate, DateTime? endDate, string? client = null)
+    public Result UpdateDetails(string name, string? description, DateTime? startDate, DateTime? endDate, string? client = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Project name cannot be empty", nameof(name));
-
-        if (startDate.HasValue && endDate.HasValue && endDate <= startDate)
-            throw new ArgumentException("End date must be after start date", nameof(endDate));
+        var validationResult = ValidateProjectData(name, description, startDate, endDate, client);
+        if (validationResult.IsFailure)
+            return validationResult;
 
         Name = name;
         Description = description;
@@ -63,12 +72,18 @@ public class Project
         StartDate = startDate;
         EndDate = endDate;
         UpdatedDate = DateTime.UtcNow;
+
+        return Result.Success();
     }
 
-    public void Deactivate()
+    public Result Deactivate()
     {
+        if (Timesheets.Any(t => t.DateWorked > DateTime.UtcNow.AddDays(-30)))
+            return Result.Failure(ProjectError.CannotDeleteActiveProject);
+
         IsActive = false;
         UpdatedDate = DateTime.UtcNow;
+        return Result.Success();
     }
 
     public void Activate()
@@ -91,8 +106,31 @@ public class Project
         return Timesheets.Sum(t => t.HoursWorked);
     }
 
-    public bool CanLogTime()
+    public Result<bool> CanLogTime()
     {
+        if (!IsActive)
+            return Result.Failure<bool>(ProjectError.ProjectInactive);
+
         return IsCurrentlyActive;
+    }
+
+    private static Result ValidateProjectData(string name, string? description, DateTime? startDate, DateTime? endDate, string? client)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return Result.Failure(ProjectError.NameCannotBeEmpty);
+
+        if (name.Length > 200)
+            return Result.Failure(ProjectError.NameTooLong);
+
+        if (description?.Length > 1000)
+            return Result.Failure(ProjectError.DescriptionTooLong);
+
+        if (client?.Length > 100)
+            return Result.Failure(ProjectError.ClientNameTooLong);
+
+        if (startDate.HasValue && endDate.HasValue && endDate <= startDate)
+            return Result.Failure(ProjectError.EndDateMustBeAfterStartDate);
+
+        return Result.Success();
     }
 }

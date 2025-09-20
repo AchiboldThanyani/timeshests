@@ -1,3 +1,4 @@
+using AutoMapper;
 using timesheets.Application.Commands.Timesheets;
 using timesheets.Application.DTOs.Requests;
 using timesheets.Application.DTOs.Responses;
@@ -5,60 +6,38 @@ using timesheets.Domain.Entities;
 
 namespace timesheets.Application.Mappers;
 
-public static class TimesheetMapper
+public class TimesheetMapper
 {
-    public static CreateTimesheetCommand ToCommand(CreateTimesheetRequest request)
+    private readonly IMapper _mapper;
+
+    public TimesheetMapper(IMapper mapper)
     {
-        return new CreateTimesheetCommand(
-            request.EmployeeName,
-            request.ProjectId,
-            request.Description,
-            request.Date,
-            request.HoursWorked
-        );
+        _mapper = mapper;
     }
 
-    public static UpdateTimesheetCommand ToCommand(int id, UpdateTimesheetRequest request)
+    public CreateTimesheetCommand ToCommand(CreateTimesheetRequest request)
     {
-        return new UpdateTimesheetCommand(
-            id,
-            request.EmployeeName,
-            request.ProjectId,
-            request.Description,
-            request.Date,
-            request.HoursWorked
-        );
+        return _mapper.Map<CreateTimesheetCommand>(request);
     }
 
-    public static Timesheet ToEntity(CreateTimesheetCommand command)
+    public UpdateTimesheetCommand ToCommand(int id, UpdateTimesheetRequest request)
     {
-        return new Timesheet(
-            command.EmployeeName,
-            command.ProjectId,
-            command.Date,
-            command.HoursWorked,
-            command.Description
-        );
+        var command = _mapper.Map<UpdateTimesheetCommand>(request);
+        return command with { Id = id };
     }
 
-    public static TimesheetResponse ToResponse(Timesheet timesheet)
+    public Timesheet ToEntity(CreateTimesheetCommand command)
     {
-        return new TimesheetResponse
-        {
-            Id = timesheet.Id,
-            EmployeeName = timesheet.EmployeeName,
-            ProjectId = timesheet.ProjectId,
-            ProjectName = timesheet.Project?.Name,
-            Description = timesheet.Description,
-            Date = timesheet.Date,
-            HoursWorked = timesheet.HoursWorked,
-            CreatedDate = timesheet.CreatedDate,
-            UpdatedDate = timesheet.UpdatedDate
-        };
+        return _mapper.Map<Timesheet>(command);
     }
 
-    public static IEnumerable<TimesheetResponse> ToResponse(IEnumerable<Timesheet> timesheets)
+    public TimesheetResponse ToResponse(Timesheet timesheet)
     {
-        return timesheets.Select(ToResponse);
+        return _mapper.Map<TimesheetResponse>(timesheet);
+    }
+
+    public IEnumerable<TimesheetResponse> ToResponse(IEnumerable<Timesheet> timesheets)
+    {
+        return _mapper.Map<IEnumerable<TimesheetResponse>>(timesheets);
     }
 }

@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using timesheets.Application.DTOs;
@@ -5,7 +6,7 @@ using timesheets.Application.DTOs.Requests;
 using timesheets.Application.DTOs.Responses;
 using timesheets.Application.Commands.Projects;
 using timesheets.Application.Queries.Projects;
-using timesheets.Application.Mappers;
+using timesheets.Domain.Shared;
 
 namespace timesheets.Presentation.Controllers;
 
@@ -14,10 +15,12 @@ namespace timesheets.Presentation.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IMapper _mapper;
 
-    public ProjectsController(IMediator mediator)
+    public ProjectsController(IMediator mediator, IMapper mapper)
     {
         _mediator = mediator;
+        _mapper = mapper;
     }
 
     /// <summary>
@@ -55,21 +58,15 @@ public class ProjectsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (!request.ValidateDateRange())
+        var command = _mapper.Map<CreateProjectCommand>(request);
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            return BadRequest("End date must be after start date");
+            return BadRequest(result.Error.Message);
         }
 
-        try
-        {
-            var command = ProjectMapper.ToCommand(request);
-            var createdProject = await _mediator.Send(command);
-            return CreatedAtAction(nameof(GetProject), new { id = createdProject.Id }, createdProject);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        return CreatedAtAction(nameof(GetProject), new { id = result.Value.Id }, result.Value);
     }
 
     /// <summary>
@@ -83,21 +80,18 @@ public class ProjectsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (!request.ValidateDateRange())
+        var command = _mapper.Map<UpdateProjectCommand>(request);
+        command = command with { Id = id };
+        var result = await _mediator.Send(command);
+
+        if (result.IsFailure)
         {
-            return BadRequest("End date must be after start date");
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(result.Error.Message)
+                : BadRequest(result.Error.Message);
         }
 
-        try
-        {
-            var command = ProjectMapper.ToCommand(id, request);
-            await _mediator.Send(command);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        return NoContent();
     }
 
     /// <summary>
@@ -107,9 +101,12 @@ public class ProjectsController : ControllerBase
     public async Task<IActionResult> DeleteProject(int id)
     {
         var result = await _mediator.Send(new DeleteProjectCommand(id));
-        if (!result)
+
+        if (result.IsFailure)
         {
-            return NotFound();
+            return result.Error.Code.Contains("NotFound")
+                ? NotFound(result.Error.Message)
+                : BadRequest(result.Error.Message);
         }
 
         return NoContent();

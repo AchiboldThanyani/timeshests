@@ -1,10 +1,12 @@
 using MediatR;
 using timesheets.Application.Commands.Projects;
 using timesheets.Domain.Interfaces;
+using timesheets.Domain.Shared;
+using timesheets.Domain.Errors;
 
 namespace timesheets.Application.Handlers.Projects;
 
-public class DeleteProjectHandler : IRequestHandler<DeleteProjectCommand, bool>
+public class DeleteProjectHandler : IRequestHandler<DeleteProjectCommand, Result>
 {
     private readonly IProjectRepository _projectRepository;
 
@@ -13,13 +15,17 @@ public class DeleteProjectHandler : IRequestHandler<DeleteProjectCommand, bool>
         _projectRepository = projectRepository;
     }
 
-    public async Task<bool> Handle(DeleteProjectCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(DeleteProjectCommand request, CancellationToken cancellationToken)
     {
-        var exists = await _projectRepository.ExistsAsync(request.Id);
-        if (!exists)
-            return false;
+        var project = await _projectRepository.GetByIdAsync(request.Id);
+        if (project == null)
+            return Result.Failure(ProjectError.NotFound);
 
-        await _projectRepository.DeleteAsync(request.Id);
-        return true;
+        var deactivateResult = project.Deactivate();
+        if (deactivateResult.IsFailure)
+            return Result.Failure(deactivateResult.Error!);
+
+        await _projectRepository.UpdateAsync(project);
+        return Result.Success();
     }
 }

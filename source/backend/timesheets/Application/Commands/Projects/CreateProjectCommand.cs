@@ -1,5 +1,6 @@
 using MediatR;
 using timesheets.Application.DTOs;
+using timesheets.Domain.Shared;
 
 namespace timesheets.Application.Commands.Projects;
 
@@ -9,4 +10,4 @@ public record CreateProjectCommand(
     string? Client,
     DateTime? StartDate,
     DateTime? EndDate
-) : IRequest<ProjectDto>;
+) : IRequest<Result<ProjectDto>>;

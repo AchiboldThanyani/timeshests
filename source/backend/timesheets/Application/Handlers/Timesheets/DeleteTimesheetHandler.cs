@@ -1,10 +1,12 @@
 using MediatR;
 using timesheets.Application.Commands.Timesheets;
 using timesheets.Domain.Interfaces;
+using timesheets.Domain.Shared;
+using timesheets.Domain.Errors;
 
 namespace timesheets.Application.Handlers.Timesheets;
 
-public class DeleteTimesheetHandler : IRequestHandler<DeleteTimesheetCommand, bool>
+public class DeleteTimesheetHandler : IRequestHandler<DeleteTimesheetCommand, Result>
 {
     private readonly ITimesheetRepository _timesheetRepository;
 
@@ -13,13 +15,16 @@ public class DeleteTimesheetHandler : IRequestHandler<DeleteTimesheetCommand, bo
         _timesheetRepository = timesheetRepository;
     }
 
-    public async Task<bool> Handle(DeleteTimesheetCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(DeleteTimesheetCommand request, CancellationToken cancellationToken)
     {
-        var exists = await _timesheetRepository.ExistsAsync(request.Id);
-        if (!exists)
-            return false;
+        var timesheet = await _timesheetRepository.GetByIdAsync(request.Id);
+        if (timesheet == null)
+            return Result.Failure(TimesheetError.NotFound);
+
+        if (!timesheet.CanBeModified())
+            return Result.Failure(TimesheetError.CannotModifyOldEntry);
 
         await _timesheetRepository.DeleteAsync(request.Id);
-        return true;
+        return Result.Success();
     }
 }
