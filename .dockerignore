@@ -1,0 +1,97 @@
+# Version control
+.git/
+.gitignore
+.hg/
+.svn/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build outputs (C#)
+bin/
+obj/
+
+# Build outputs (generic)
+dist/
+build/
+out/
+debug/
+
+# Test and test artifacts
+test/
+tests/
+*.test
+.pytest_cache/
+.coverage
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+
+# Go
+/vendor/
+.go-cache/
+
+# Java
+*.class
+.gradle/
+target/
+
+# Environment and secrets
+.env*
+*.env
+*.pem
+*.key
+*.crt
+config.local.*
+*.local.yml
+.local/
+local/
+
+# Documentation and markdown
+docs/
+documentation/
+*.md
+README*
+
+# Docker files
+Dockerfile*
+docker-compose*
+
+# Temporary and miscellaneous
+tmp/
+temp/
+*.tmp
+
+# Project-specific empty folders
+frontend/
+ci/
+source/backend/timesheets/Models/
+source/backend/timesheets/Presentation/wwwroot/
+source/backend/timesheets.Tests/Integration/
+source/backend/timesheets.Tests/Unit/Application/Handlers/
+source/backend/timesheets.Tests/Unit/Domain/Entities/
+source/backend/timesheets.Tests/Unit/Domain/Errors/
+source/backend/timesheets.Tests/Unit/Domain/Shared/
+
+# Exclude all test projects and their build outputs
+source/backend/timesheets.Tests/
+source/backend/timesheets.Tests/bin/
+source/backend/timesheets.Tests/obj/
+
+# Exclude migration designer files (if not needed for runtime)
+source/backend/timesheets/Migrations/*.Designer.cs
+
+# Exclude YAML workflows
+.github/
+.github/workflows/
+*.yml
